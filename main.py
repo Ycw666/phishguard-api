@@ -111,11 +111,12 @@ async def lifespan(app: FastAPI):
         logger.warning(f"LSTM not loaded: {e}")
 
     # ── CharCNN ───────────────────────────────
+    # Only load if torch is available (disabled on free tier to save memory)
     try:
         import torch
         with open(os.path.join(BASE_DIR, "tokenizer_CNN.pkl"), "rb") as f:
             char2idx = pickle.load(f)
-        vocab_size = len(char2idx) + 1   # +1 for padding idx 0
+        vocab_size = len(char2idx) + 1
         cnn_model = build_char_cnn(vocab_size)
         state = torch.load(
             os.path.join(BASE_DIR, "char_cnn_model.pth"),
@@ -126,6 +127,8 @@ async def lifespan(app: FastAPI):
         cnn_model.eval()
         _models["cnn"] = {"model": cnn_model, "char2idx": char2idx, "threshold": 0.5}
         logger.info("CharCNN loaded")
+    except ImportError:
+        logger.info("CharCNN skipped (torch not installed)")
     except Exception as e:
         logger.warning(f"CharCNN not loaded: {e}")
 

@@ -15,5 +15,5 @@ pandas>=2.0.0
 # LSTM
 tensorflow-cpu>=2.16.0
 
-# CharCNN  (CPU-only to keep image small on Render)
-torch>=2.2.0
+# CharCNN disabled on free tier (memory limit)
+# torch>=2.2.0
