@@ -110,25 +110,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"LSTM not loaded: {e}")
 
-    # ── CharCNN ───────────────────────────────
-    # Only load if torch is available (disabled on free tier to save memory)
+    # ── CharCNN (ONNX Runtime) ────────────────
     try:
-        import torch
+        import onnxruntime as ort
         with open(os.path.join(BASE_DIR, "tokenizer_CNN.pkl"), "rb") as f:
             char2idx = pickle.load(f)
-        vocab_size = len(char2idx) + 1
-        cnn_model = build_char_cnn(vocab_size)
-        state = torch.load(
-            os.path.join(BASE_DIR, "char_cnn_model.pth"),
-            map_location="cpu",
-            weights_only=True,
+        sess = ort.InferenceSession(
+            os.path.join(BASE_DIR, "cnn_model.onnx"),
+            providers=["CPUExecutionProvider"],
         )
-        cnn_model.load_state_dict(state)
-        cnn_model.eval()
-        _models["cnn"] = {"model": cnn_model, "char2idx": char2idx, "threshold": 0.5}
-        logger.info("CharCNN loaded")
-    except ImportError:
-        logger.info("CharCNN skipped (torch not installed)")
+        _models["cnn"] = {"session": sess, "char2idx": char2idx, "threshold": 0.5}
+        logger.info("CharCNN (ONNX) loaded")
     except Exception as e:
         logger.warning(f"CharCNN not loaded: {e}")
 
@@ -243,13 +235,17 @@ def _predict_one(url: str) -> PredictionResult:
         except Exception as e:
             logger.warning(f"LSTM predict error: {e}")
 
-    # ── CharCNN ───────────────────────────────
+    # ── CharCNN (ONNX) ────────────────────────
     if "cnn" in _models:
         try:
-            import torch
-            x = _encode_for_cnn(url, _models["cnn"]["char2idx"])
-            with torch.no_grad():
-                prob = float(_models["cnn"]["model"](x)[0])
+            char2idx = _models["cnn"]["char2idx"]
+            clean = re.sub(r"^https?://", "", url, flags=re.IGNORECASE).lower()
+            ids = [char2idx.get(c, 0) for c in clean[:CNN_MAX_LEN]]
+            ids = ids + [0] * (CNN_MAX_LEN - len(ids))
+            x = np.array([ids], dtype=np.int64)
+            sess = _models["cnn"]["session"]
+            out = sess.run(None, {"input": x})
+            prob = float(out[0][0])
             scores["cnn"] = round(prob, 4)
             votes.append(prob >= _models["cnn"]["threshold"])
         except Exception as e:

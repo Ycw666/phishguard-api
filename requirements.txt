@@ -15,5 +15,5 @@ pandas>=2.0.0
 # LSTM
 tensorflow-cpu>=2.16.0
 
-# CharCNN disabled on free tier (memory limit)
-# torch>=2.2.0
+# CharCNN via ONNX Runtime (~50MB, replaces PyTorch ~700MB)
+onnxruntime>=1.18.0
