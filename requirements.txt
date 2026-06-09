@@ -10,6 +10,7 @@ scikit-learn>=1.4.0
 
 # Feature extraction
 tldextract>=5.1.0
+pandas>=2.0.0
 
 # LSTM
 tensorflow-cpu>=2.16.0
