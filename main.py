@@ -90,9 +90,12 @@ def build_char_cnn(vocab_size: int):
 async def lifespan(app: FastAPI):
     # ── XGBoost ──────────────────────────────
     try:
-        xgb_model = joblib.load(os.path.join(BASE_DIR, "0520_augmented_xgb_model.pkl"))
-        xgb_cfg   = joblib.load(os.path.join(BASE_DIR, "0520_augmented_model_config.pkl"))
-        xgb_threshold = float(xgb_cfg.get("threshold", 0.36)) if isinstance(xgb_cfg, dict) else 0.36
+        xgb_model = joblib.load(os.path.join(BASE_DIR, "0623_augmented_xgb_model.pkl"))
+        xgb_cfg   = joblib.load(os.path.join(BASE_DIR, "0623_augmented_model_config.pkl"))
+        xgb_threshold = (
+            float(xgb_cfg.get("best_threshold", xgb_cfg.get("threshold", 0.35)))
+            if isinstance(xgb_cfg, dict) else 0.35
+        )
         _models["xgb"] = {"model": xgb_model, "threshold": xgb_threshold}
         logger.info(f"XGBoost loaded (threshold={xgb_threshold})")
     except Exception as e:
@@ -101,10 +104,10 @@ async def lifespan(app: FastAPI):
     # ── LSTM ─────────────────────────────────
     try:
         import tensorflow as tf
-        lstm_model = tf.keras.models.load_model(os.path.join(BASE_DIR, "0520_lstm_model.keras"))
-        with open(os.path.join(BASE_DIR, "0520_lstm_config.json")) as f:
+        lstm_model = tf.keras.models.load_model(os.path.join(BASE_DIR, "0623_lstm_model.keras"))
+        with open(os.path.join(BASE_DIR, "0623_lstm_config.json")) as f:
             lstm_cfg = json.load(f)
-        lstm_threshold = float(lstm_cfg.get("threshold", 0.38))
+        lstm_threshold = float(lstm_cfg.get("threshold", 0.45))
         _models["lstm"] = {"model": lstm_model, "threshold": lstm_threshold}
         logger.info(f"LSTM loaded (threshold={lstm_threshold})")
     except Exception as e:
@@ -119,7 +122,7 @@ async def lifespan(app: FastAPI):
             os.path.join(BASE_DIR, "cnn_model.onnx"),
             providers=["CPUExecutionProvider"],
         )
-        _models["cnn"] = {"session": sess, "char2idx": char2idx, "threshold": 0.5}
+        _models["cnn"] = {"session": sess, "char2idx": char2idx, "threshold": 0.4}
         logger.info("CharCNN (ONNX) loaded")
     except Exception as e:
         logger.warning(f"CharCNN not loaded: {e}")
